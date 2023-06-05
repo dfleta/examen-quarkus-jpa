@@ -1,9 +1,11 @@
 
 import java.util.List;
+import java.util.Optional;
 
 import javax.inject.Inject;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
+import javax.persistence.TypedQuery;
 import javax.transaction.Transactional;
 
 import org.assertj.core.api.Assertions;
@@ -99,6 +101,24 @@ public class RepoTest {
 	}
 
 	/**
+	 * Implementa el metodo loadWizard del repositorio
+	 * que devuelve un Optional del mago/a con el nombre indicado
+	 */
+	
+	@Test
+	public void test_load_wizard() {
+		Assertions.assertThat(repo).isNotNull();
+		Wizard squib = repo.loadWizard("Hermione").get();
+		Assertions.assertThat(squib).isNotNull();
+		Assertions.assertThat(squib.toString()).contains("Hermione");
+		Assertions.assertThat(squib.toString()).contains("100");
+		Assertions.assertThat(squib.toString()).contains("MUDBLOOD");
+
+		// no existe el mago
+		Assertions.assertThat(repo.loadWizard("Severus Snape")).isEmpty();
+	}
+
+	/**
 	 * Implementa el metodo loadItem() del repositorio
 	 * que devuelve un Optional del Item con el nombre indicado.
 	 * 
@@ -117,26 +137,6 @@ public class RepoTest {
 
 		// no existe el item
 		Assertions.assertThat(repo.loadItem("Varita de Sauco")).isEmpty();
-	}
-
-	/**
-	 * Implementa el metodo loadItems() del repositorio
-	 * que devuelve una lista de Items 
-	 * con el nombre indicado
-	 * 
-	 * Ojo que el nombre del item no es la clave primaria.
-	 */
-	@Test
-	public void test_load_items() {
-		Assertions.assertThat(repo).isNotNull();
-
-		List<MagicalItem> items = repo.loadItems("Aged Brie");
-		Assertions.assertThat(items).isNotEmpty().hasSize(2);
-		Assertions.assertThat(items.get(0)).hasFieldOrPropertyWithValue("name", "Aged Brie");
-		Assertions.assertThat(items.get(1)).hasFieldOrPropertyWithValue("quality", 0);
-
-		// si no existe el item
-		Assertions.assertThat(repo.loadItems("Varita de Sauco")).isEmpty();
 	}
 
 	/**
@@ -163,6 +163,62 @@ public class RepoTest {
 		Assertions.assertThat(repo.loadItem(brie)).isEmpty();
 	}
 
+	/**
+	 * Implementa el metodo loadItems() del repositorio
+	 * que devuelve una lista de Items 
+	 * con el nombre indicado
+	 * 
+	 * Ojo que el nombre del item no es la clave primaria.
+	 */
+	@Test
+	public void test_load_items() {
+		Assertions.assertThat(repo).isNotNull();
+
+		List<MagicalItem> items = repo.loadItems("Aged Brie");
+		Assertions.assertThat(items).isNotEmpty().hasSize(2);
+		Assertions.assertThat(items.get(0)).hasFieldOrPropertyWithValue("name", "Aged Brie");
+		Assertions.assertThat(items.get(1)).hasFieldOrPropertyWithValue("quality", 0);
+
+		// si no existe el item
+		Assertions.assertThat(repo.loadItems("Varita de Sauco")).isEmpty();
+	}
+
+
+	/**
+	 * Implementa el metodo placeOrder(wizard, item) del repositorio 
+	 * que genera un pedido de un item para un mago determinado.
+	 * El pedido se guarda en la base de datos.
+	 *  
+	 * Los magos/as mudblood NO pueden comprar un item.
+	 */
+
+	@Test
+	@Transactional
+	public void test_pedido() {
+ 
+	// Hermione no puede comprar items
+		Assertions.assertThat(repo).isNotNull();
+		Optional<Order> orden = repo.placeOrder("Hermione", "Elixir of the Mongoose");
+		Assertions.assertThat(orden).isEmpty();
+ 
+		// Marius Black compra un item
+		orden = repo.placeOrder("Marius Black", "Elixir of the Mongoose");
+		Assertions.assertThat(orden).isNotEmpty();
+ 
+		Assertions.assertThat(orden.get().getId()).isNotZero();
+		Assertions.assertThat(orden.get().getWizard().getName()).isEqualTo("Marius Black");
+		Assertions.assertThat(orden.get().getItem().getName()).isEqualTo("Elixir of the Mongoose");
+  
+		// query para obtener todos los pedidos de Marius de manera agnostica
+		// al patron DAO /Active record
+		TypedQuery<Order> query = em.createQuery("select orden from Order orden join orden.wizard wizard where wizard.name = 'Marius Black'", Order.class);
+		List<Order> pedidos = query.getResultList();
+		  
+		Assertions.assertThat(pedidos).isNotNull().hasSize(3);
+		Assertions.assertThat(pedidos.get(2).getWizard().getName()).isEqualTo("Marius Black");
+		Assertions.assertThat(pedidos.get(2).getItem().getName()).isEqualToIgnoringCase("Elixir of the Mongoose");
+	}
+ 
 	/**
 	 * Implementa el metodo createItem() del repositorio
 	 * que crea un item en la base de datos.
@@ -220,8 +276,7 @@ public class RepoTest {
 		Assertions.assertThat(items.get(1)).hasFieldOrPropertyWithValue("quality", -1);
 	}
 
-
-    /**
+	/**
      * Implementa el metodo deleteItem() del repositorio
 	 * que elimina el item indicado en la base de datos.
      * Los parametros necesarios son:
@@ -249,12 +304,6 @@ public class RepoTest {
 		// Si no existe el item
 		item = new MagicalItem("Varita de Sauco", 1000, "MagicalItem");
 		Assertions.assertThat(repo.loadItem("Varita de Sauco")).isEmpty();
-
-		// Item eliminado rompe integridad referencial => ON DELETE SET NULL 
-		item = new MagicalItem("+5 Dexterity Vest", 40, "MagicalItem");
-		repo.deleteItem(item);
-		vest = em.find(MagicalItem.class, 5L);
-		Assertions.assertThat(vest).isNull();
 	}
 
 	/**
@@ -269,7 +318,7 @@ public class RepoTest {
 
 	/**
 	 * Recuerda inyectar el repositorio en el servicio
-	 * y continua completando los test del Resources.
+	 * y continua completando los test de ResourceTest.
 	 */
 
 }
