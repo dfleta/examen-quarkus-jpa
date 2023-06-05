@@ -10,11 +10,6 @@ import javax.transaction.Transactional;
 
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.pingpong.restquarkusjpa.domain.MagicalItem;
-import org.pingpong.restquarkusjpa.domain.Order;
-import org.pingpong.restquarkusjpa.domain.Wizard;
-import org.pingpong.restquarkusjpa.repositorio.Repositorio;
-import org.pingpong.restquarkusjpa.service.ServiceItem;
 
 import io.quarkus.test.junit.QuarkusTest;
 
